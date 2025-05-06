@@ -2,6 +2,7 @@
 flatpickr('#date', { dateFormat: 'Y-m-d' });
 flatpickr('#time', { enableTime: true, noCalendar: true, dateFormat: 'H:i' });
 flatpickr('#leaveRange', { mode: 'range', dateFormat: 'Y-m-d' });
+flatpickr('#issueDate', { dateFormat: 'Y-m-d' });
 
 function pad(n) { return n < 10 ? '0' + n : n; }
 function formatDate(date) {
@@ -645,5 +646,60 @@ document.addEventListener('DOMContentLoaded', () => {
     doc.text(summaryText, 14, doc.lastAutoTable.finalY + 10);
     
     doc.save('fichajes_' + new Date().toISOString().split('T')[0] + '.pdf');
+  });
+
+  // Botón de reportar incidencia
+  document.getElementById('reportIssueBtn').addEventListener('click', function() {
+    if (!currentUser) {
+      alert('Debes iniciar sesión para reportar una incidencia.');
+      return;
+    }
+    
+    // Establecer la fecha de hoy por defecto
+    document.getElementById('issueDate').value = formatYMD(new Date());
+    
+    // Mostrar el modal
+    const reportIssueModal = new bootstrap.Modal(document.getElementById('reportIssueModal'));
+    reportIssueModal.show();
+  });
+  
+  // Enviar el reporte de incidencia
+  document.getElementById('submitIssue').addEventListener('click', function() {
+    const issueType = document.getElementById('issueType').value;
+    const issueDescription = document.getElementById('issueDescription').value;
+    const issueDate = document.getElementById('issueDate').value;
+    
+    if (!issueType || !issueDescription || !issueDate) {
+      alert('Por favor completa todos los campos del formulario.');
+      return;
+    }
+    
+    // Simular envío de email
+    const email = 'recursos.humanos@empresa.com';
+    const subject = 'Incidencia en sistema de fichajes: ' + issueType;
+    const body = `
+      Empleado: ${currentUser.name} (${currentUser.username})
+      Tipo de incidencia: ${issueType}
+      Fecha de la incidencia: ${issueDate}
+      
+      Descripción:
+      ${issueDescription}
+      
+      Enviado desde el sistema de fichajes el ${formatDate(new Date())}
+    `;
+    
+    console.log('Enviando email a:', email);
+    console.log('Asunto:', subject);
+    console.log('Cuerpo:', body);
+    
+    // En un sistema real, aquí se enviaría el email mediante una API o backend
+    
+    // Mostrar confirmación
+    alert('Tu incidencia ha sido reportada correctamente. El departamento de RRHH ha sido notificado y atenderá tu solicitud lo antes posible.');
+    
+    // Cerrar el modal y limpiar el formulario
+    const reportIssueModal = bootstrap.Modal.getInstance(document.getElementById('reportIssueModal'));
+    reportIssueModal.hide();
+    document.getElementById('issueForm').reset();
   });
 });

@@ -106,9 +106,51 @@
           <button id="quickVacation" class="btn btn-warning me-2">
             <i class="bi bi-calendar-check"></i> Solicitar vacaciones
           </button>
-          <button id="quickSickLeave" class="btn btn-danger">
+          <button id="quickSickLeave" class="btn btn-danger me-2">
             <i class="bi bi-hospital"></i> Registrar baja
           </button>
+          <button id="reportIssueBtn" class="btn btn-secondary">
+            <i class="bi bi-exclamation-triangle"></i> Reportar incidencia
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para reportar incidencias -->
+    <div class="modal fade" id="reportIssueModal" tabindex="-1" aria-labelledby="reportIssueModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="reportIssueModalLabel">Reportar incidencia</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="issueForm">
+              <div class="mb-3">
+                <label for="issueType" class="form-label">Tipo de incidencia</label>
+                <select class="form-select" id="issueType" required>
+                  <option value="">Selecciona un tipo</option>
+                  <option value="error_fichar">Error al fichar</option>
+                  <option value="horas_incorrectas">Horas registradas incorrectas</option>
+                  <option value="vacaciones">Problema con vacaciones</option>
+                  <option value="baja">Problema con baja laboral</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="issueDescription" class="form-label">Descripción de la incidencia</label>
+                <textarea class="form-control" id="issueDescription" rows="3" required placeholder="Describe lo que ha ocurrido..."></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="issueDate" class="form-label">Fecha de la incidencia</label>
+                <input type="text" class="form-control" id="issueDate" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="submitIssue">Enviar reporte</button>
+          </div>
         </div>
       </div>
     </div>
