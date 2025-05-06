@@ -1,0 +1,101 @@
+/* Global styles for Fichajes de Personal */
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1 { 
+  margin-bottom: 30px;
+  color: #2c3e50;
+  font-size: 2.5em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 3px solid #3498db;
+}
+form, .export-buttons, .summary { margin-top: 20px; }
+label { display: inline-block; margin-right: 10px; }
+input[type="text"], select { padding: 4px; margin-right: 5px; }
+button { padding: 6px 12px; margin-right: 5px; }
+table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background-color: #f4f4f4; }
+
+/* Estilos para el resumen de totales */
+.summary {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-top: 0.5rem;
+  border-top: 1px solid #e9ecef;
+  padding-top: 1rem;
+}
+.summary p {
+  margin: 5px 0;
+  font-size: 1.1em;
+  font-weight: bold;
+} 
+
+/* Estilos para acciones rápidas */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.quick-actions button {
+  min-width: 150px;
+  padding: 12px 15px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* Estilos para el área de la tabla */
+#tableContainer {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+#toggleTableBtn {
+  transition: all 0.2s ease;
+}
+
+#toggleTableBtn:hover {
+  background-color: #e2e6ea;
+}
+
+/* Estilos para las tarjetas de usuario */
+#userPanel, #loginSection, #registerSection {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .quick-actions button {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  
+  #loginForm, #registerForm {
+    flex-direction: column;
+  }
+  
+  #loginForm .col-md-4, #registerForm .col-md-4,
+  #registerForm .col-md-3, #registerForm .col-md-2 {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+} 
