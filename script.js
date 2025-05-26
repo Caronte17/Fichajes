@@ -41,13 +41,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Al inicio, ocultar la tabla para una interfaz más limpia
   tableContainer.style.display = 'none';
   toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
+  document.querySelector('h4.mb-0').style.display = 'none';
   
+  // Actualizar el botón de opciones avanzadas
+  const advancedOptionsBtn = document.querySelector('[data-bs-target="#advancedOptions"]');
+  advancedOptionsBtn.className = 'btn btn-outline-secondary';
+  advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Mostrar opciones avanzadas';
+  
+  // Actualizar el texto del botón cuando se expande/colapsa
+  document.getElementById('advancedOptions').addEventListener('show.bs.collapse', function () {
+    advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Ocultar opciones avanzadas';
+  });
+  
+  document.getElementById('advancedOptions').addEventListener('hide.bs.collapse', function () {
+    advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Mostrar opciones avanzadas';
+  });
+
   toggleTableBtn.addEventListener('click', function() {
+    const tableTitle = document.querySelector('h4.mb-0');
     if (tableContainer.style.display === 'none') {
       tableContainer.style.display = 'block';
+      tableTitle.style.display = 'block';
       toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
     } else {
       tableContainer.style.display = 'none';
+      tableTitle.style.display = 'none';
       toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
     }
   });
@@ -449,13 +467,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('actionButtonsSection').style.display = 'none';
     document.getElementById('advancedOptionsToggle').style.display = 'none';
     
+    // Ocultar la tabla y resetear el botón
+    tableContainer.style.display = 'none';
+    toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
+    toggleTableBtn.style.display = 'none';
+    document.querySelector('h4.mb-0').style.display = 'none';
+    
     // Ocultar formularios avanzados
     const advancedOptions = document.getElementById('advancedOptions');
     const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
     bsCollapse.hide();
     
-    // Actualizar tabla para mostrar solo registros públicos o del usuario
-    updateTable(tableBody);
+    // Limpiar la tabla
+    tableBody.innerHTML = '';
+    
+    // Limpiar los totales
+    document.getElementById('monthlyTotal').textContent = '0.00';
+    document.getElementById('annualTotal').textContent = '0.00';
   });
   
   // Función para actualizar la UI cuando un usuario inicia sesión
@@ -485,9 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('actionButtonsSection').style.display = 'block';
     document.getElementById('advancedOptionsToggle').style.display = 'block';
     
-    // Mostrar el botón toggleTableBtn y el título 'Registros de fichajes'
+    // Mostrar el botón toggleTableBtn pero mantener la tabla y el título ocultos
     document.getElementById('toggleTableBtn').style.display = 'block';
-    document.querySelector('h4.mb-0').style.display = 'block';
+    tableContainer.style.display = 'none';
+    document.querySelector('h4.mb-0').style.display = 'none';
     
     // Actualizar tabla para mostrar registros del usuario
     updateTable(tableBody);
