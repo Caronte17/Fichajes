@@ -81,7 +81,7 @@
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h5 class="mb-0">Bienvenido/a, <span id="currentUserName">Usuario</span></h5>
-                <small class="text-muted">Sesión iniciada como: <span id="currentUsername">usuario</span></small>
+                <span id="currentUsername">usuario</span>
               </div>
               <button id="logoutBtn" class="btn btn-outline-danger">
                 <i class="bi bi-box-arrow-right"></i> Cerrar sesión
@@ -244,18 +244,17 @@
           </thead>
           <tbody></tbody>
         </table>
+        <div class="summary mb-4">
+          <p>Total horas mes: <span id="monthlyTotal">0.00</span> h</p>
+          <p>Total horas año: <span id="annualTotal">0.00</span> h</p>
+        </div>
+        <div class="btn-group mb-4" role="group">
+          <button id="exportExcel" class="btn btn-success">Exportar a Excel</button>
+          <button id="exportPDF" class="btn btn-danger">Exportar a PDF</button>
+        </div>
       </div>
     </div>
-    
-    <!-- El resumen y los botones de exportación siempre visibles -->
-    <div class="summary mb-4">
-      <p>Total horas mes: <span id="monthlyTotal">0.00</span> h</p>
-      <p>Total horas año: <span id="annualTotal">0.00</span> h</p>
-    </div>
-    <div class="btn-group mb-4" role="group">
-      <button id="exportExcel" class="btn btn-success">Exportar a Excel</button>
-      <button id="exportPDF" class="btn btn-danger">Exportar a PDF</button>
-    </div>
+         
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

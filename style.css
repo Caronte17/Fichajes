@@ -364,4 +364,16 @@ td {
     transform: scale(20, 20);
     opacity: 0;
   }
+}
+
+/* Ajuste para el botón de registro en el card-header */
+.card-header .btn-outline-primary {
+  color: white;
+  border-color: white;
+}
+
+.card-header .btn-outline-primary:hover {
+  background-color: white;
+  color: var(--primary-color);
+  border-color: white;
 } 
