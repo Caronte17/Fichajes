@@ -1,6 +1,9 @@
 <?php
 header('Content-Type: application/json');
 
+// Establecer la zona horaria para España
+date_default_timezone_set('Europe/Madrid');
+
 $servername = "localhost";
 $username = "root";
 $password = "";
@@ -26,9 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'Invalid JSON data']);
         exit;
     }
-
-    // Log received data
-    error_log('Received punch data: ' . $json);
 
     // Validate data
     if (!is_array($data)) {
@@ -80,6 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $punches = [];
     if ($result->num_rows > 0) {
         while($row = $result->fetch_assoc()) {
+            // Convertir la hora a la zona horaria de España
+            $date = new DateTime($row['time']);
+            $date->setTimezone(new DateTimeZone('Europe/Madrid'));
+            $row['time'] = $date->format('Y-m-d H:i:s');
             $punches[] = $row;
         }
     }

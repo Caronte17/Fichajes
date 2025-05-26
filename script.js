@@ -505,6 +505,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const now = new Date();
+    const timeString = now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+    const [datePart, timePart] = timeString.split(', ');
+    const [day, month, year] = datePart.split('/');
+    const formattedDate = `${year}-${month}-${day} ${timePart}`;
     
     // Comprobar si ya existe una entrada sin salida para este empleado
     const hasPendingEntry = punches.some(p => 
@@ -526,10 +530,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPunch = { 
       employee: currentUser.name,
       type: 'in',
-      time: now
+      time: formattedDate
     };
     
-    console.log('Adding new punch:', newPunch);
     punches.push(newPunch);
     
     punches.sort((a, b) => a.time - b.time);
@@ -540,9 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tableContainer.style.display = 'block';
       toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
       
-      alert('Entrada registrada a las ' + formatDate(now).split(' ')[1]);
+      alert('Entrada registrada a las ' + timePart);
     }).catch(error => {
-      console.error('Error saving punch:', error);
       alert('Error al guardar el fichaje. Por favor intenta de nuevo.');
     });
   });
@@ -575,13 +577,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const now = new Date();
+    const timeString = now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+    const [datePart, timePart] = timeString.split(', ');
+    const [day, month, year] = datePart.split('/');
+    const formattedDate = `${year}-${month}-${day} ${timePart}`;
+    
     const newPunch = { 
       employee: currentUser.name,
       type: 'out',
-      time: now
+      time: formattedDate
     };
     
-    console.log('Adding new punch:', newPunch);
     punches.push(newPunch);
     
     punches.sort((a, b) => a.time - b.time);
@@ -592,9 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tableContainer.style.display = 'block';
       toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
       
-      alert('Salida registrada a las ' + formatDate(now).split(' ')[1]);
+      alert('Salida registrada a las ' + timePart);
     }).catch(error => {
-      console.error('Error saving punch:', error);
       alert('Error al guardar el fichaje. Por favor intenta de nuevo.');
     });
   });
