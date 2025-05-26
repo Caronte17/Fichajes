@@ -75,8 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const pairs = [];
     const stack = {};
 
-    punches.sort((a, b) => a.time - b.time);
+    // Ordenar los fichajes por fecha
+    punches.sort((a, b) => new Date(a.time) - new Date(b.time));
 
+    // Procesar los fichajes
     punches.forEach(p => {
       if (!stack[p.employee]) stack[p.employee] = [];
       if (p.type === 'in') {
@@ -103,9 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
       : pairs;
 
     pairsToSum.forEach(pair => {
-      const dur = (pair.out - pair.in) / 3600000;
-      if (pair.in >= monthStart && pair.in < nextMonth) monthlySum += dur;
-      if (pair.in.getFullYear() === now.getFullYear()) annualSum += dur;
+      const dur = (new Date(pair.out) - new Date(pair.in)) / 3600000;
+      if (new Date(pair.in) >= monthStart && new Date(pair.in) < nextMonth) monthlySum += dur;
+      if (new Date(pair.in).getFullYear() === now.getFullYear()) annualSum += dur;
     });
 
     document.getElementById('monthlyTotal').textContent = monthlySum.toFixed(2);
@@ -113,16 +115,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rows = [];
 
+    // Añadir fichajes
     pairs.forEach(pair => {
       if (!currentUser || pair.employee === currentUser.name) {
         rows.push({
           ...pair,
-          duration: (pair.out - pair.in) / 3600000,
+          duration: (new Date(pair.out) - new Date(pair.in)) / 3600000,
           source: 'punch'
         });
       }
     });
 
+    // Añadir fichajes pendientes
     Object.keys(stack).forEach(emp => {
       if (!currentUser || emp === currentUser.name) {
         stack[emp].forEach(inEvent => {
@@ -137,12 +141,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    // Añadir ausencias
     leaves.forEach(l => {
       if (!currentUser || l.employee === currentUser.name) {
-        const d = new Date(l.start);
-        while (d <= l.end) {
-          const day = new Date(d);
-          const hasPunch = punches.some(p => p.employee === l.employee && formatYMD(p.time) === formatYMD(day));
+        const start = new Date(l.start);
+        const end = new Date(l.end);
+        let currentDate = new Date(start);
+        
+        while (currentDate <= end) {
+          const day = new Date(currentDate);
+          const hasPunch = punches.some(p => 
+            p.employee === l.employee && 
+            formatYMD(p.time) === formatYMD(day)
+          );
+          
           if (!hasPunch) {
             rows.push({
               employee: l.employee,
@@ -155,12 +167,15 @@ document.addEventListener('DOMContentLoaded', () => {
               leaveType: l.type
             });
           }
-          d.setDate(d.getDate() + 1);
+          currentDate.setDate(currentDate.getDate() + 1);
         }
       }
     });
 
-    rows.sort((a, b) => a.in - b.in);
+    // Ordenar todas las filas por fecha
+    rows.sort((a, b) => new Date(a.in) - new Date(b.in));
+
+    // Limpiar y actualizar la tabla
     tableBody.innerHTML = '';
     rows.forEach(row => {
       const leave = leaves.find(l =>
@@ -244,12 +259,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const validLeaves = newLeaves
       .filter(l => l && l.employee && l.start && l.end && l.type)
-      .map(l => ({
-        employee: l.employee.toString().trim(),
-        start: l.start instanceof Date ? l.start.toISOString() : l.start,
-        end: l.end instanceof Date ? l.end.toISOString() : l.end,
-        type: l.type.toString().trim()
-      }));
+      .map(l => {
+        const start = l.start instanceof Date ? l.start : new Date(l.start);
+        const end = l.end instanceof Date ? l.end : new Date(l.end);
+        
+        return {
+          employee: l.employee.toString().trim(),
+          start: start.toISOString().split('T')[0],
+          end: end.toISOString().split('T')[0],
+          type: l.type.toString().trim()
+        };
+      });
     
     if (validLeaves.length === 0) return Promise.resolve();
 
@@ -258,7 +278,14 @@ document.addEventListener('DOMContentLoaded', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(validLeaves)
     })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(data => {
+          throw new Error(data.error || 'Error al guardar las ausencias');
+        });
+      }
+      return response.json();
+    })
     .then(data => {
       if (data.error) throw new Error(data.error);
       return fetch('time_backend/leaves.php', { method: 'GET' })
@@ -335,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
             time: parseDate(p.time)
           }))
           .filter(p => p.time !== null);
-        updateTable(tableBody);
       }),
 
     fetch('time_backend/leaves.php', { method: 'GET' })
@@ -350,7 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
           }))
           .filter(l => l.start !== null && l.end !== null);
       })
-  ]);
+  ]).then(() => {
+    // Actualizar la tabla después de cargar todos los datos
+    updateTable(tableBody);
+  });
 
   // Gestionar registro de usuarios
   document.getElementById('showRegisterBtn').addEventListener('click', function() {
@@ -709,24 +738,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const emp = document.getElementById('leaveEmployee').value.trim();
     const type = document.querySelector('input[name="leaveType"]:checked').value;
     const rangeVal = document.getElementById('leaveRange').value;
+    
+    if (!emp || !type || !rangeVal) {
+      alert('Por favor completa todos los campos del formulario de ausencia.');
+      return;
+    }
+
     const [startStr, endStr] = rangeVal.split(' to ');
     const start = new Date(startStr);
     const end = endStr ? new Date(endStr) : start;
 
-    leaves.push({ employee: emp, start, end, type });
-    saveData();
-    updateTable(tableBody);
-    e.target.reset();
-    
-    // Actualizar también el campo de empleado 
-    if (currentUser) {
-      document.getElementById('leaveEmployee').value = currentUser.name;
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      alert('Por favor selecciona fechas válidas.');
+      return;
     }
+
+    leaves.push({ 
+      employee: emp, 
+      start: start, 
+      end: end, 
+      type: type 
+    });
     
-    // Ocultar el formulario avanzado después de enviar
-    const advancedOptions = document.getElementById('advancedOptions');
-    const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-    bsCollapse.hide();
+    saveData().then(() => {
+      updateTable(tableBody);
+      e.target.reset();
+      
+      // Actualizar también el campo de empleado 
+      if (currentUser) {
+        document.getElementById('leaveEmployee').value = currentUser.name;
+      }
+      
+      // Ocultar el formulario avanzado después de enviar
+      const advancedOptions = document.getElementById('advancedOptions');
+      const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
+      bsCollapse.hide();
+    }).catch(error => {
+      alert('Error al guardar la ausencia: ' + error.message);
+    });
   });
 
   // Manejo de botones Eliminar y Modificar
