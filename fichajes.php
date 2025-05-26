@@ -63,9 +63,9 @@
                 <label for="registerPassword" class="form-label">Contraseña</label>
                 <input type="password" class="form-control" id="registerPassword" required>
               </div>
-              <div class="col-md-2 d-flex align-items-end">
+              <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-success">Registrar</button>
-                <button type="button" class="btn btn-outline-secondary ms-2" id="cancelRegisterBtn">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary" id="cancelRegisterBtn">Cancelar</button>
               </div>
             </form>
           </div>
