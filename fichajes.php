@@ -26,8 +26,8 @@
                     <div class="card-body">
                         <form id="loginForm" class="row g-3">
                             <div class="col-md-4">
-                                <label for="loginUsername" class="form-label">Usuario</label>
-                                <input type="text" class="form-control" id="loginUsername" required>
+                                <label for="loginEmail" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="loginEmail" required>
                             </div>
                             <div class="col-md-4">
                                 <label for="loginPassword" class="form-label">Contraseña</label>

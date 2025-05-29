@@ -68,6 +68,7 @@ if ($method === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
+            $_SESSION['user_role'] = $user['role'];
 
             // Configurar cookie de sesión
             session_regenerate_id(true);
@@ -84,7 +85,8 @@ if ($method === 'POST') {
             sendResponse(true, [
                 'id' => $user['id'],
                 'name' => $user['name'],
-                'email' => $user['email']
+                'email' => $user['email'],
+                'role' => $user['role']
             ]);
         } else {
             sendResponse(false, null, 'Credenciales incorrectas');

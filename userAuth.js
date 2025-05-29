@@ -1,3 +1,6 @@
+// Importar funciones necesarias
+import { loadUsers, loadPunches, loadLeaves, updateTableUI } from './script.js';
+
 // Función para iniciar sesión
 export async function login(email, password) {
     try {
@@ -21,8 +24,33 @@ export async function login(email, password) {
         // Actualizar UI
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('userPanel').style.display = 'block';
+        document.getElementById('actionButtonsSection').style.display = 'block';
+        document.getElementById('advancedOptionsToggle').style.display = 'block';
+        document.getElementById('toggleTableBtn').style.display = 'block';
+        document.querySelector('h4.mb-0').style.display = 'block';
+        
+        // Actualizar información del usuario
         document.getElementById('currentUserName').textContent = data.data.name;
         document.getElementById('currentUsername').textContent = data.data.email;
+        
+        // Mostrar indicador de administrador si corresponde
+        if (data.data.role === 'admin') {
+            document.getElementById('currentUsername').innerHTML = data.data.email + ' <span class="badge bg-danger">Administrador</span>';
+        }
+        
+        // Actualizar campos de formulario
+        document.getElementById('employee').value = data.data.name;
+        document.getElementById('leaveEmployee').value = data.data.name;
+        
+        // Cargar datos adicionales
+        await Promise.all([
+            loadUsers(),
+            loadPunches(),
+            loadLeaves()
+        ]);
+        
+        // Actualizar la tabla
+        updateTableUI();
         
         return true;
     } catch (error) {
@@ -80,8 +108,8 @@ export async function checkSession() {
         }
 
         const data = await response.json();
-        if (data && !data.error) {
-            localStorage.setItem('currentUser', JSON.stringify(data));
+        if (data && data.success && data.data) {
+            localStorage.setItem('currentUser', JSON.stringify(data.data));
             return true;
         }
 
@@ -137,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginUsername').value;
+            const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             await login(email, password);
         });

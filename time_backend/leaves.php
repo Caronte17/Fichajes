@@ -162,12 +162,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $stmt->close();
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Get leave requests for the current user
-    $stmt = $conn->prepare("
-        SELECT * FROM leaves 
-        WHERE employee = ? 
-        ORDER BY start DESC
-    ");
+    // Verificar si el usuario es administrador
+    $isAdmin = isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
+    
+    // Preparar la consulta según el rol
+    if ($isAdmin) {
+        $stmt = $conn->prepare("SELECT * FROM leaves ORDER BY start DESC");
+    } else {
+        $stmt = $conn->prepare("SELECT * FROM leaves WHERE employee = ? ORDER BY start DESC");
+        $stmt->bind_param("s", $_SESSION['user_name']);
+    }
     
     if (!$stmt) {
         http_response_code(500);
@@ -175,7 +179,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $stmt->bind_param("s", $_SESSION['user_name']);
     if (!$stmt->execute()) {
         http_response_code(500);
         echo json_encode(['error' => 'Error executing statement: ' . $stmt->error]);

@@ -1,3 +1,6 @@
+// Exportar funciones necesarias
+export { loadUsers, loadPunches, loadLeaves, updateTableUI };
+
 // Importar funciones necesarias
 import { login, logout, checkSession } from './userAuth.js';
 
@@ -44,23 +47,46 @@ function updateUserUI() {
         document.getElementById('advancedOptionsToggle').style.display = 'none';
         document.getElementById('toggleTableBtn').style.display = 'none';
         document.querySelector('h4.mb-0').style.display = 'none';
+        document.getElementById('tableContainer').style.display = 'none';
         return;
     }
 
+    // Actualizar información del usuario
     document.getElementById('currentUserName').textContent = currentUser.name;
     document.getElementById('currentUsername').textContent = currentUser.email;
     
+    // Mostrar indicador de administrador si corresponde
+    const isAdmin = currentUser.role === 'admin';
+    if (isAdmin) {
+        document.getElementById('currentUsername').innerHTML = currentUser.email + ' <span class="badge bg-danger">Administrador</span>';
+    }
+    
+    // Actualizar campos de formulario
     document.getElementById('employee').value = currentUser.name;
     document.getElementById('leaveEmployee').value = currentUser.name;
     
+    // Mostrar secciones necesarias
     document.getElementById('loginSection').style.display = 'none';
     document.getElementById('userPanel').style.display = 'block';
     document.getElementById('actionButtonsSection').style.display = 'block';
     document.getElementById('advancedOptionsToggle').style.display = 'block';
-    
     document.getElementById('toggleTableBtn').style.display = 'block';
-    document.getElementById('tableContainer').style.display = 'none';
-    document.querySelector('h4.mb-0').style.display = 'none';
+    document.querySelector('h4.mb-0').style.display = 'block';
+    
+    // Configurar visibilidad de la tabla
+    const tableContainer = document.getElementById('tableContainer');
+    const toggleTableBtn = document.getElementById('toggleTableBtn');
+    
+    if (tableContainer && toggleTableBtn) {
+        tableContainer.style.display = 'block';
+        toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
+        
+        // Asegurarse de que la tabla tenga contenido
+        const tableBody = document.querySelector('#punchTable tbody');
+        if (tableBody) {
+            updateTable(tableBody);
+        }
+    }
 }
 
 // Función para actualizar la tabla
@@ -73,7 +99,13 @@ function updateTableUI() {
 
 // Función para actualizar la tabla con los datos
 function updateTable(tableBody) {
-    if (!tableBody) return;
+    if (!tableBody) {
+        console.error('Table body element not found');
+        return;
+    }
+
+    console.log('Updating table with punches:', punches);
+    console.log('Current leaves:', leaves);
 
     const pairs = [];
     const stack = {};
@@ -92,7 +124,9 @@ function updateTable(tableBody) {
                 pairs.push({
                     employee: p.employee,
                     in: inEvent.time,
-                    out: p.time
+                    out: p.time,
+                    inId: inEvent.id,
+                    outId: p.id
                 });
             }
         }
@@ -103,11 +137,8 @@ function updateTable(tableBody) {
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     let monthlySum = 0, annualSum = 0;
 
-    const pairsToSum = currentUser 
-        ? pairs.filter(p => p.employee === currentUser.name)
-        : pairs;
-
-    pairsToSum.forEach(pair => {
+    // Calcular totales
+    pairs.forEach(pair => {
         const dur = (new Date(pair.out) - new Date(pair.in)) / 3600000;
         if (new Date(pair.in) >= monthStart && new Date(pair.in) < nextMonth) monthlySum += dur;
         if (new Date(pair.in).getFullYear() === now.getFullYear()) annualSum += dur;
@@ -120,61 +151,58 @@ function updateTable(tableBody) {
 
     // Añadir fichajes
     pairs.forEach(pair => {
-        if (!currentUser || pair.employee === currentUser.name) {
-            rows.push({
-                ...pair,
-                duration: (new Date(pair.out) - new Date(pair.in)) / 3600000,
-                source: 'punch'
-            });
-        }
+        rows.push({
+            ...pair,
+            duration: (new Date(pair.out) - new Date(pair.in)) / 3600000,
+            source: 'punch'
+        });
     });
 
     // Añadir fichajes pendientes
     Object.keys(stack).forEach(emp => {
-        if (!currentUser || emp === currentUser.name) {
-            stack[emp].forEach(inEvent => {
-                rows.push({
-                    employee: emp,
-                    in: inEvent.time,
-                    out: null,
-                    duration: null,
-                    source: 'punch'
-                });
+        stack[emp].forEach(inEvent => {
+            rows.push({
+                employee: emp,
+                in: inEvent.time,
+                out: null,
+                duration: null,
+                source: 'punch',
+                inId: inEvent.id
             });
-        }
+        });
     });
 
     // Añadir ausencias
     leaves.forEach(l => {
-        if (!currentUser || l.employee === currentUser.name) {
-            const start = new Date(l.start);
-            const end = new Date(l.end);
-            let currentDate = new Date(start);
+        const start = new Date(l.start);
+        const end = new Date(l.end);
+        let currentDate = new Date(start);
+        
+        while (currentDate <= end) {
+            const day = new Date(currentDate);
+            const hasPunch = punches.some(p => 
+                p.employee === l.employee && 
+                formatYMD(p.time) === formatYMD(day)
+            );
             
-            while (currentDate <= end) {
-                const day = new Date(currentDate);
-                const hasPunch = punches.some(p => 
-                    p.employee === l.employee && 
-                    formatYMD(p.time) === formatYMD(day)
-                );
-                
-                if (!hasPunch) {
-                    rows.push({
-                        employee: l.employee,
-                        in: day,
-                        out: null,
-                        duration: null,
-                        source: 'leave',
-                        leaveType: l.type
-                    });
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
+            if (!hasPunch) {
+                rows.push({
+                    employee: l.employee,
+                    in: day,
+                    out: null,
+                    duration: null,
+                    source: 'leave',
+                    leaveType: l.type
+                });
             }
+            currentDate.setDate(currentDate.getDate() + 1);
         }
     });
 
     // Ordenar todas las filas por fecha
     rows.sort((a, b) => new Date(a.in) - new Date(b.in));
+
+    console.log('Generated rows:', rows);
 
     // Limpiar y actualizar la tabla
     tableBody.innerHTML = '';
@@ -183,7 +211,6 @@ function updateTable(tableBody) {
         tr.dataset.source = row.source;
         tr.dataset.employee = row.employee;
         
-        // Asegurarse de que in y out sean objetos Date válidos
         const inDate = row.in instanceof Date ? row.in : new Date(row.in);
         const outDate = row.out instanceof Date ? row.out : row.out ? new Date(row.out) : null;
         
@@ -195,6 +222,15 @@ function updateTable(tableBody) {
             tr.classList.add(row.leaveType === 'vacation' ? 'table-warning' : 'table-danger');
         }
 
+        // Añadir el ID del fichaje al dataset de la fila
+        if (row.source === 'punch') {
+            if (row.inId) tr.dataset.punchId = row.inId;
+            if (row.outId) tr.dataset.outPunchId = row.outId;
+        }
+
+        // Verificar si el usuario actual es administrador
+        const isAdmin = currentUser && currentUser.role === 'admin';
+
         tr.innerHTML = `
             <td>${row.employee}</td>
             <td>${formatDate(row.in)}</td>
@@ -205,13 +241,19 @@ function updateTable(tableBody) {
                     '<span class="badge bg-warning text-dark">Vacaciones</span>' : 
                     '<span class="badge bg-danger">Baja laboral</span>') 
                 : ''}</td>
-            <td>
+            <td>${isAdmin ? `
                 <button class="btn btn-sm btn-danger delete-btn"><i class="bi bi-trash"></i> Eliminar</button>
                 <button class="btn btn-sm btn-warning edit-btn"><i class="bi bi-pencil"></i> Modificar</button>
-            </td>
+            ` : ''}</td>
         `;
         tableBody.appendChild(tr);
     });
+
+    // Asegurarse de que la tabla sea visible
+    const tableContainer = document.getElementById('tableContainer');
+    if (tableContainer) {
+        tableContainer.style.display = 'block';
+    }
 }
 
 // Función para guardar fichajes
@@ -277,9 +319,11 @@ async function savePunches(punches) {
 async function loadPunches() {
     try {
         if (!currentUser) {
+            console.log('No hay usuario actual, no se cargarán los fichajes');
             return;
         }
 
+        console.log('Cargando fichajes...');
         const response = await fetch('time_backend/punches.php', {
             credentials: 'include'
         });
@@ -294,6 +338,8 @@ async function loadPunches() {
             throw new Error(data.error);
         }
 
+        console.log('Fichajes recibidos:', data);
+
         // Limpiar el array de punches antes de cargar nuevos datos
         punches = [];
         
@@ -306,10 +352,18 @@ async function loadPunches() {
             }))
             .filter(p => p.time !== null);
 
+        console.log('Fichajes procesados:', punches);
+
         // Ordenar los fichajes por fecha
         punches.sort((a, b) => new Date(a.time) - new Date(b.time));
 
-        updateTableUI();
+        // Actualizar la tabla
+        const tableBody = document.querySelector('#punchTable tbody');
+        if (tableBody) {
+            updateTable(tableBody);
+        } else {
+            console.error('No se encontró el elemento tbody de la tabla');
+        }
     } catch (error) {
         console.error('Error al cargar fichajes:', error);
         if (!error.message.includes('No active session')) {
@@ -385,7 +439,9 @@ async function loadCurrentUser() {
             throw new Error(data.error);
         }
 
-        currentUser = data;
+        // Update to handle the correct response structure
+        currentUser = data.data;
+        console.log('Current user loaded:', currentUser); // Debug
         updateUserUI();
 
         // Solo cargar datos adicionales si hay un usuario activo
@@ -396,18 +452,9 @@ async function loadCurrentUser() {
                 loadPunches(),
                 loadLeaves()
             ]);
-
-            // Mostrar la tabla después de cargar los datos
-            const tableContainer = document.getElementById('tableContainer');
-            const toggleTableBtn = document.getElementById('toggleTableBtn');
-            if (tableContainer && toggleTableBtn) {
-                tableContainer.style.display = 'block';
-                toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
-            }
         }
     } catch (error) {
         console.error('Error al cargar usuario actual:', error);
-        // No mostrar alerta si es error de sesión
         if (!error.message.includes('No active session')) {
             alert('Error al cargar el usuario actual');
         }
@@ -507,31 +554,14 @@ async function deletePunch(punchId) {
 
         // Recargar los fichajes después de eliminar
         await loadPunches();
+        alert('Fichaje eliminado correctamente');
     } catch (error) {
         console.error('Error al eliminar fichaje:', error);
-        alert(error.message);
+        alert(error.message || 'Error al eliminar el fichaje');
     }
 }
 
-// Actualizar el manejador de inicio de sesión
-document.getElementById('loginForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-    
-    try {
-        const success = await login(email, password);
-        if (success) {
-            // Cargar datos inmediatamente después del login exitoso
-            await loadCurrentUser();
-        }
-    } catch (error) {
-        console.error('Error en login:', error);
-        alert('Error al iniciar sesión');
-    }
-});
-
-// Actualizar la función de verificación de sesión inicial
+// Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Primero verificar la sesión
@@ -541,692 +571,221 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (hasSession) {
             // Cargar datos inmediatamente si hay sesión
             await loadCurrentUser();
+            
+            // Cargar todos los datos necesarios
+            await Promise.all([
+                loadUsers(),
+                loadPunches(),
+                loadLeaves()
+            ]);
+            
+            // Actualizar la tabla
+            updateTableUI();
         } else {
             // Si no hay sesión, limpiar el estado y actualizar UI
             currentUser = null;
             punches = [];
             leaves = [];
             updateUserUI();
-            
-            // Intentar cargar usuarios sin mostrar errores si falla
-            try {
-                await loadUsers();
-            } catch (error) {
-                // Silenciar errores de carga de usuarios si no hay sesión
-                console.log('No se pudieron cargar los usuarios: sesión no iniciada');
-            }
         }
+
+        // Inicializar event listeners
+        initializeEventListeners();
     } catch (error) {
-        // Silenciar errores de autorización
-        if (!error.message.includes('401') && !error.message.includes('Unauthorized')) {
-            console.error('Error al cargar datos iniciales:', error);
-        }
-        // Asegurar que la UI esté en un estado consistente
+        console.error('Error al cargar datos iniciales:', error);
         currentUser = null;
         updateUserUI();
     }
 });
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const form = document.getElementById('punchForm');
-    const tableBody = document.querySelector('#punchTable tbody');
-    const tableContainer = document.getElementById('tableContainer');
+// Función para inicializar todos los event listeners
+function initializeEventListeners() {
+    // Login form
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            await login(email, password);
+        });
+    }
+
+    // Logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await logout();
+        });
+    }
+
+    // Toggle table button
     const toggleTableBtn = document.getElementById('toggleTableBtn');
-    
-    // Al inicio, ocultar la tabla para una interfaz más limpia
-    tableContainer.style.display = 'none';
-    toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
-    document.querySelector('h4.mb-0').style.display = 'none';
-    
-    // Actualizar el botón de opciones avanzadas
-    const advancedOptionsBtn = document.querySelector('[data-bs-target="#advancedOptions"]');
-    advancedOptionsBtn.className = 'btn btn-outline-secondary';
-    advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Mostrar opciones avanzadas';
-    
-    // Actualizar el texto del botón cuando se expande/colapsa
-    document.getElementById('advancedOptions').addEventListener('show.bs.collapse', function () {
-        advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Ocultar opciones avanzadas';
-    });
-    
-    document.getElementById('advancedOptions').addEventListener('hide.bs.collapse', function () {
-        advancedOptionsBtn.innerHTML = '<i class="bi bi-gear"></i> Mostrar opciones avanzadas';
-    });
-
-    toggleTableBtn.addEventListener('click', function() {
-        const tableTitle = document.querySelector('h4.mb-0');
-        if (tableContainer.style.display === 'none') {
-            tableContainer.style.display = 'block';
-            tableTitle.style.display = 'block';
-            toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
-        } else {
-            tableContainer.style.display = 'none';
-            tableTitle.style.display = 'none';
-            toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
-        }
-    });
-
-    function saveCurrentUser(currentUser) {
-        if (!currentUser || !currentUser.name || !currentUser.username) return Promise.resolve();
-
-        return fetch('time_backend/currentUser.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentUser)
+    if (toggleTableBtn) {
+        toggleTableBtn.addEventListener('click', function() {
+            const tableContainer = document.getElementById('tableContainer');
+            const tableTitle = document.querySelector('h4.mb-0');
+            
+            if (tableContainer.style.display === 'none') {
+                tableContainer.style.display = 'block';
+                tableTitle.style.display = 'block';
+                this.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
+            } else {
+                tableContainer.style.display = 'none';
+                tableTitle.style.display = 'none';
+                this.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
+            }
         });
     }
 
-    function removeCurrentUser() {
-        return fetch('time_backend/currentUser.php', {
-            method: 'DELETE'
-        });
-    }
-
-    // Gestionar registro de usuarios
-    document.getElementById('showRegisterBtn').addEventListener('click', function() {
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('registerSection').style.display = 'block';
-    });
-    
-    document.getElementById('cancelRegisterBtn').addEventListener('click', function() {
-        document.getElementById('registerSection').style.display = 'none';
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('registerForm').reset();
-    });
-    
-    document.getElementById('registerForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const name = document.getElementById('registerName').value.trim();
-        const username = document.getElementById('registerUsername').value.trim();
-        const password = document.getElementById('registerPassword').value;
-        
-        if (!name || !username || !password) {
-            alert('Por favor completa todos los campos.');
-            return;
-        }
-        
-        // Verificar si el usuario ya existe
-        if (users.some(u => u.username === username)) {
-            alert('Este nombre de usuario ya existe. Por favor elige otro.');
-            return;
-        }
-        
-        // Crear nuevo usuario
-        const newUser = {
-            name: name,
-            username: username,
-            password: password
-        };
-        
-        // Guardar usuario en el servidor
-        fetch('time_backend/users.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newUser)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert('Error al registrar usuario: ' + data.error);
-            } else {
-                // Añadir usuario a la lista local
-                users.push(newUser);
-                
-                alert('Usuario registrado correctamente. Ya puedes iniciar sesión.');
-                
-                // Ocultar formulario de registro y mostrar login
-                document.getElementById('registerSection').style.display = 'none';
-                document.getElementById('loginSection').style.display = 'block';
-                document.getElementById('registerForm').reset();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al registrar usuario. Por favor intenta de nuevo.');
-        });
-    });
-    
-    // Gestionar logout
-    document.getElementById('logoutBtn').addEventListener('click', function() {
-        currentUser = null;
-        saveData();
-        
-        // Actualizar UI
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('userPanel').style.display = 'none';
-        document.getElementById('actionButtonsSection').style.display = 'none';
-        document.getElementById('advancedOptionsToggle').style.display = 'none';
-        
-        // Ocultar la tabla y resetear el botón
-        tableContainer.style.display = 'none';
-        toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Mostrar tabla';
-        toggleTableBtn.style.display = 'none';
-        document.querySelector('h4.mb-0').style.display = 'none';
-        
-        // Ocultar formularios avanzados
-        const advancedOptions = document.getElementById('advancedOptions');
-        const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-        bsCollapse.hide();
-        
-        // Limpiar la tabla
-        tableBody.innerHTML = '';
-        
-        // Limpiar los totales
-        document.getElementById('monthlyTotal').textContent = '0.00';
-        document.getElementById('annualTotal').textContent = '0.00';
-    });
-    
-    // Fichar entrada rápida
-    document.getElementById('quickCheckIn').addEventListener('click', function() {
-        if (!currentUser) {
-            alert('Debes iniciar sesión para fichar.');
-            return;
-        }
-        
-        const now = new Date();
-        const timeString = now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-        const [datePart, timePart] = timeString.split(', ');
-        const [day, month, year] = datePart.split('/');
-        const formattedDate = `${year}-${month}-${day} ${timePart}`;
-        
-        // Comprobar si ya existe una entrada sin salida para este empleado
-        const hasPendingEntry = punches.some(p => 
-            p.employee === currentUser.name && 
-            p.type === 'in' && 
-            !punches.some(exit => 
-                exit.employee === currentUser.name && 
-                exit.type === 'out' && 
-                exit.time > p.time
-            )
-        );
-        
-        if (hasPendingEntry) {
-            if (!confirm('Ya tienes una entrada registrada sin salida. ¿Deseas registrar otra entrada?')) {
-                return;
-            }
-        }
-        
-        const newPunch = { 
-            employee: currentUser.name,
-            type: 'in',
-            time: formattedDate
-        };
-        
-        punches.push(newPunch);
-        
-        punches.sort((a, b) => a.time - b.time);
-        saveData().then(() => {
-            updateTable(tableBody);
+    // Event delegation for edit and delete buttons
+    const tableBody = document.querySelector('#punchTable tbody');
+    if (tableBody) {
+        tableBody.addEventListener('click', async (e) => {
+            const target = e.target;
+            const row = target.closest('tr');
             
-            // Mostrar la tabla automáticamente después de fichar
-            tableContainer.style.display = 'block';
-            toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
-            
-            alert('Entrada registrada a las ' + timePart);
-        }).catch(error => {
-            alert('Error al guardar el fichaje. Por favor intenta de nuevo.');
-        });
-    });
-    
-    // Fichar salida rápida
-    document.getElementById('quickCheckOut').addEventListener('click', function() {
-        if (!currentUser) {
-            alert('Debes iniciar sesión para fichar.');
-            return;
-        }
-        
-        // Comprobar si existe una entrada sin salida para este empleado
-        let hasEntry = false;
-        const entries = punches.filter(p => p.employee === currentUser.name && p.type === 'in');
-        const exits = punches.filter(p => p.employee === currentUser.name && p.type === 'out');
-        
-        for (const entry of entries) {
-            // Comprobar si hay una salida posterior a esta entrada
-            const hasExit = exits.some(exit => exit.time > entry.time);
-            if (!hasExit) {
-                hasEntry = true;
-                break;
-            }
-        }
-        
-        if (!hasEntry) {
-            if (!confirm('No tienes ninguna entrada registrada sin salida. ¿Deseas registrar una salida de todos modos?')) {
-                return;
-            }
-        }
-        
-        const now = new Date();
-        const timeString = now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-        const [datePart, timePart] = timeString.split(', ');
-        const [day, month, year] = datePart.split('/');
-        const formattedDate = `${year}-${month}-${day} ${timePart}`;
-        
-        const newPunch = { 
-            employee: currentUser.name,
-            type: 'out',
-            time: formattedDate
-        };
-        
-        punches.push(newPunch);
-        
-        punches.sort((a, b) => a.time - b.time);
-        saveData().then(() => {
-            updateTable(tableBody);
-            
-            // Mostrar la tabla automáticamente después de fichar
-            tableContainer.style.display = 'block';
-            toggleTableBtn.innerHTML = '<i class="bi bi-table"></i> Ocultar tabla';
-            
-            alert('Salida registrada a las ' + timePart);
-        }).catch(error => {
-            alert('Error al guardar el fichaje. Por favor intenta de nuevo.');
-        });
-    });
-    
-    // Solicitar vacaciones rápido
-    document.getElementById('quickVacation').addEventListener('click', function() {
-        if (!currentUser) {
-            alert('Debes iniciar sesión para solicitar vacaciones.');
-            return;
-        }
-        
-        // Mostrar el formulario avanzado
-        const advancedOptions = document.getElementById('advancedOptions');
-        const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-        bsCollapse.show();
-        
-        // Establecer vacaciones como opción seleccionada
-        document.getElementById('leaveTypeVac').checked = true;
-        
-        // Enfocar el selector de fecha
-        setTimeout(() => {
-            document.getElementById('leaveRange').focus();
-        }, 500);
-    });
-    
-    // Registrar baja laboral rápido
-    document.getElementById('quickSickLeave').addEventListener('click', function() {
-        if (!currentUser) {
-            alert('Debes iniciar sesión para registrar baja laboral.');
-            return;
-        }
-        
-        // Mostrar el formulario avanzado
-        const advancedOptions = document.getElementById('advancedOptions');
-        const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-        bsCollapse.show();
-        
-        // Establecer baja laboral como opción seleccionada
-        document.getElementById('leaveTypeSick').checked = true;
-        
-        // Enfocar el selector de fecha
-        setTimeout(() => {
-            document.getElementById('leaveRange').focus();
-        }, 500);
-    });
+            if (!row) return;
 
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const employee = document.getElementById('employee').value.trim();
-        const type = document.getElementById('type').value;
-        const dateStr = document.getElementById('date').value;
-        const timeStr = document.getElementById('time').value;
-        const datetime = new Date(dateStr + 'T' + timeStr);
-
-        if (!employee || isNaN(datetime)) return;
-
-        if (form.dataset.editing === 'true') {
-            const index = form.dataset.index;
-            punches[index] = { employee, type, time: datetime };
-            form.dataset.editing = 'false';
-        } else {
-            punches.push({ employee, type, time: datetime });
-        }
-
-        punches.sort((a, b) => a.time - b.time);
-        saveData();
-        updateTable(tableBody);
-        form.reset();
-        
-        // Actualizar también el campo de empleado
-        if (currentUser) {
-            document.getElementById('employee').value = currentUser.name;
-        }
-    });
-
-    document.getElementById('leaveForm').addEventListener('submit', async e => {
-        e.preventDefault();
-        const emp = document.getElementById('leaveEmployee').value.trim();
-        const type = document.querySelector('input[name="leaveType"]:checked').value;
-        const rangeVal = document.getElementById('leaveRange').value;
-        
-        if (!emp || !type || !rangeVal) {
-            alert('Por favor completa todos los campos del formulario de ausencia.');
-            return;
-        }
-
-        const [startStr, endStr] = rangeVal.split(' to ');
-        const start = new Date(startStr);
-        const end = endStr ? new Date(endStr) : start;
-
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            alert('Por favor selecciona fechas válidas.');
-            return;
-        }
-
-        try {
-            const leaveData = {
-                employee: emp,
-                start: start.toISOString().split('T')[0],
-                end: end.toISOString().split('T')[0],
-                type: type
-            };
-
-            const response = await fetch('time_backend/leaves.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(leaveData)
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Error al guardar la ausencia');
-            }
-
-            // Recargar las ausencias después de guardar
-            await loadLeaves();
-            
-            // Limpiar el formulario
-            e.target.reset();
-            
-            // Actualizar el campo de empleado
-            if (currentUser) {
-                document.getElementById('leaveEmployee').value = currentUser.name;
-            }
-            
-            // Ocultar el formulario avanzado después de enviar
-            const advancedOptions = document.getElementById('advancedOptions');
-            const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-            bsCollapse.hide();
-
-            // Mostrar mensaje de éxito
-            alert(type === 'vacation' ? 'Vacaciones registradas correctamente' : 'Baja laboral registrada correctamente');
-        } catch (error) {
-            console.error('Error al guardar ausencia:', error);
-            alert(error.message);
-        }
-    });
-
-    // Manejo de botones Eliminar y Modificar
-    document.querySelector('#punchTable').addEventListener('click', function (e) {
-        const deleteBtn = e.target.closest('.delete-btn');
-        const editBtn = e.target.closest('.edit-btn');
-        
-        if (!deleteBtn && !editBtn) return;
-        
-        const tr = e.target.closest('tr');
-        if (!tr) return;
-
-        const employee = tr.dataset.employee;
-        const inDate = new Date(tr.dataset.in);
-        const outDate = tr.dataset.out ? new Date(tr.dataset.out) : null;
-        const source = tr.dataset.source;
-        
-        if (currentUser && employee !== currentUser.name) {
-            alert('Solo puedes modificar tus propios registros.');
-            return;
-        }
-
-        if (editBtn) {
-            // Mostrar el formulario avanzado primero
-            const advancedOptions = document.getElementById('advancedOptions');
-            const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
-            bsCollapse.show();
-            
-            // Luego llenar el formulario con los datos
-            const form = document.getElementById('punchForm');
-            form.dataset.editing = 'true';
-            document.getElementById('employee').value = employee;
-
-            if (!outDate) {
-                document.getElementById('type').value = 'in';
-                document.getElementById('date').value = inDate.toISOString().split('T')[0];
-                document.getElementById('time').value = inDate.toTimeString().slice(0, 5);
-                const index = punches.findIndex(p =>
-                    p.employee === employee && p.type === 'in' && p.time.toISOString() === inDate.toISOString()
-                );
-                form.dataset.index = index;
-            } else {
-                document.getElementById('type').value = 'out';
-                document.getElementById('date').value = outDate.toISOString().split('T')[0];
-                document.getElementById('time').value = outDate.toTimeString().slice(0, 5);
-                const index = punches.findIndex(p =>
-                    p.employee === employee && p.type === 'out' && p.time.toISOString() === outDate.toISOString()
-                );
-                form.dataset.index = index;
-            }
-        }
-
-        if (deleteBtn) {
-            if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
-                if (source === 'leave') {
-                    // Si es una ausencia, eliminarla de la lista de ausencias
-                    const leaveStart = new Date(tr.dataset.leaveStart);
-                    const leaveEnd = new Date(tr.dataset.leaveEnd);
-                    const leaveType = tr.dataset.leaveType;
-                    
-                    leaves = leaves.filter(l => 
-                        !(l.employee === employee && 
-                            l.start.toISOString() === leaveStart.toISOString() && 
-                            l.end.toISOString() === leaveEnd.toISOString() && 
-                            l.type === leaveType)
-                    );
-                    saveData();
-                } else {
-                    // Si es un fichaje, encontrar el ID y eliminarlo
-                    const punch = punches.find(p => 
-                        p.employee === employee && 
-                        p.time.toISOString() === inDate.toISOString()
-                    );
-                    
-                    if (punch && punch.id) {
-                        deletePunch(punch.id);
-                    } else {
-                        // Si no tiene ID, solo eliminarlo de la memoria
-                        punches = punches.filter(p =>
-                            !((p.type === 'in' && p.employee === employee && p.time.toISOString() === inDate.toISOString()) ||
-                                (p.type === 'out' && outDate && p.employee === employee && p.time.toISOString() === outDate.toISOString()))
-                        );
-                        updateTableUI();
+            // Handle delete button
+            if (target.classList.contains('delete-btn') || target.closest('.delete-btn')) {
+                const punchId = row.dataset.punchId;
+                if (punchId) {
+                    if (confirm('¿Estás seguro de que deseas eliminar este fichaje?')) {
+                        await deletePunch(punchId);
                     }
                 }
             }
-        }
-    });
 
-    updateTable(tableBody);
-
-    // Exportar a Excel
-    document.getElementById('exportExcel').addEventListener('click', function() {
-        const table = document.getElementById('punchTable');
-        const rows = Array.from(table.querySelectorAll('tbody tr'));
-        const monthlyTotal = document.getElementById('monthlyTotal').textContent;
-        const annualTotal = document.getElementById('annualTotal').textContent;
-        
-        // Crear encabezados con columnas adicionales
-        const data = [
-            ['Empleado', 'Entrada', 'Salida', 'Duración (h)', 'Ausencia', 'Total Mes (h)', 'Total Año (h)']
-        ];
-        
-        // Agregar todas las filas, dejando las columnas de totales vacías para todas excepto la primera
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const cellsData = Array.from(row.querySelectorAll('td')).slice(0, 5).map(cell => cell.textContent.trim());
-            
-            // Añadir columnas de totales (solo en la primera fila)
-            if (i === 0) {
-                cellsData.push(monthlyTotal);
-                cellsData.push(annualTotal);
-            } else {
-                cellsData.push('');
-                cellsData.push('');
+            // Handle edit button
+            if (target.classList.contains('edit-btn') || target.closest('.edit-btn')) {
+                const punchId = row.dataset.punchId;
+                if (punchId) {
+                    const punch = punches.find(p => p.id === punchId);
+                    if (punch) {
+                        // Fill the form with punch data
+                        document.getElementById('employee').value = punch.employee;
+                        document.getElementById('type').value = punch.type;
+                        document.getElementById('date').value = formatYMD(new Date(punch.time));
+                        document.getElementById('time').value = formatDate(new Date(punch.time)).split(' ')[1];
+                        
+                        // Show advanced options
+                        const advancedOptions = document.getElementById('advancedOptions');
+                        const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: true });
+                        bsCollapse.show();
+                        
+                        // Set form to edit mode
+                        const punchForm = document.getElementById('punchForm');
+                        punchForm.dataset.editing = 'true';
+                        punchForm.dataset.punchId = punchId;
+                    }
+                }
             }
-            
-            data.push(cellsData);
-        }
-        
-        // Si no hay filas, agregar una fila con los totales
-        if (rows.length === 0) {
-            data.push(['', '', '', '', '', monthlyTotal, annualTotal]);
-        }
-        
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Fichajes');
-        
-        const fileName = 'fichajes_' + new Date().toISOString().split('T')[0] + '.xlsx';
-        XLSX.writeFile(wb, fileName);
-    });
-    
-    // Exportar a PDF
-    document.getElementById('exportPDF').addEventListener('click', function() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        
-        doc.text('Fichajes de Personal', 14, 15);
-        
-        const table = document.getElementById('punchTable');
-        const headers = Array.from(table.querySelectorAll('thead th'))
-            .slice(0, 5) // Exclude Action column
-            .map(th => th.textContent);
-        
-        const rows = Array.from(table.querySelectorAll('tbody tr')).map(row => {
-            return Array.from(row.querySelectorAll('td'))
-                .slice(0, 5) // Exclude Action column
-                .map(td => td.textContent.trim());
         });
-        
-        doc.autoTable({
-            head: [headers],
-            body: rows,
-            startY: 20,
-            theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185] }
+    }
+
+    // Punch form
+    const punchForm = document.getElementById('punchForm');
+    if (punchForm) {
+        punchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const employee = document.getElementById('employee').value.trim();
+            const type = document.getElementById('type').value;
+            const dateStr = document.getElementById('date').value;
+            const timeStr = document.getElementById('time').value;
+            const datetime = new Date(dateStr + 'T' + timeStr);
+
+            if (!employee || isNaN(datetime)) return;
+
+            if (punchForm.dataset.editing === 'true') {
+                const punchId = punchForm.dataset.punchId;
+                const index = punches.findIndex(p => p.id === punchId);
+                if (index !== -1) {
+                    punches[index] = { ...punches[index], employee, type, time: datetime };
+                }
+                punchForm.dataset.editing = 'false';
+                delete punchForm.dataset.punchId;
+            } else {
+                punches.push({ employee, type, time: datetime });
+            }
+
+            punches.sort((a, b) => a.time - b.time);
+            await saveData();
+            updateTableUI();
+            punchForm.reset();
+            
+            // Actualizar también el campo de empleado
+            if (currentUser) {
+                document.getElementById('employee').value = currentUser.name;
+            }
         });
-        
-        const summaryText = 'Total horas mes: ' + document.getElementById('monthlyTotal').textContent + 
-                            ' h | Total horas año: ' + document.getElementById('annualTotal').textContent + ' h';
-        doc.text(summaryText, 14, doc.lastAutoTable.finalY + 10);
-        
-        doc.save('fichajes_' + new Date().toISOString().split('T')[0] + '.pdf');
-    });
+    }
 
-    // Botón de reportar incidencia
-    document.getElementById('reportIssueBtn').addEventListener('click', function() {
-        if (!currentUser) {
-            alert('Debes iniciar sesión para reportar una incidencia.');
-            return;
-        }
-        
-        // Establecer la fecha de hoy por defecto
-        document.getElementById('issueDate').value = formatYMD(new Date());
-        
-        // Mostrar el modal
-        const reportIssueModal = new bootstrap.Modal(document.getElementById('reportIssueModal'));
-        reportIssueModal.show();
-    });
-    
-    // Enviar el reporte de incidencia
-    document.getElementById('submitIssue').addEventListener('click', function() {
-        const issueType = document.getElementById('issueType').value;
-        const issueDescription = document.getElementById('issueDescription').value;
-        const issueDate = document.getElementById('issueDate').value;
-        
-        if (!issueType || !issueDescription || !issueDate) {
-            alert('Por favor completa todos los campos del formulario.');
-            return;
-        }
-        
-        // Simular envío de email
-        const email = 'recursos.humanos@empresa.com';
-        const subject = 'Incidencia en sistema de fichajes: ' + issueType;
-        const body = `
-            Empleado: ${currentUser.name} (${currentUser.username})
-            Tipo de incidencia: ${issueType}
-            Fecha de la incidencia: ${issueDate}
+    // Leave form
+    const leaveForm = document.getElementById('leaveForm');
+    if (leaveForm) {
+        leaveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const emp = document.getElementById('leaveEmployee').value.trim();
+            const type = document.querySelector('input[name="leaveType"]:checked').value;
+            const rangeVal = document.getElementById('leaveRange').value;
             
-            Descripción:
-            ${issueDescription}
-            
-            Enviado desde el sistema de fichajes el ${formatDate(new Date())}
-        `;
-        
-        console.log('Enviando email a:', email);
-        console.log('Asunto:', subject);
-        console.log('Cuerpo:', body);
-        
-        // En un sistema real, aquí se enviaría el email mediante una API o backend
-        
-        // Mostrar confirmación
-        alert('Tu incidencia ha sido reportada correctamente. El departamento de RRHH ha sido notificado y atenderá tu solicitud lo antes posible.');
-        
-        // Cerrar el modal y limpiar el formulario
-        const reportIssueModal = bootstrap.Modal.getInstance(document.getElementById('reportIssueModal'));
-        reportIssueModal.hide();
-        document.getElementById('issueForm').reset();
-    });
-
-    // Función para registrar un fichaje
-    async function registerPunch(type) {
-        try {
-            const user = JSON.parse(localStorage.getItem('currentUser'));
-            if (!user) {
-                alert('Debes iniciar sesión primero');
+            if (!emp || !type || !rangeVal) {
+                alert('Por favor completa todos los campos del formulario de ausencia.');
                 return;
             }
 
-            const response = await fetch('time_backend/punches.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    employee: user.name,
-                    type: type
-                })
-            });
+            const [startStr, endStr] = rangeVal.split(' to ');
+            const start = new Date(startStr);
+            const end = endStr ? new Date(endStr) : start;
 
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.error);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                alert('Por favor selecciona fechas válidas.');
+                return;
             }
 
-            alert(type === 'in' ? 'Entrada registrada' : 'Salida registrada');
-            loadPunches(); // Recargar la lista de fichajes
-        } catch (error) {
-            alert(error.message);
-        }
+            try {
+                const leaveData = {
+                    employee: emp,
+                    start: start.toISOString().split('T')[0],
+                    end: end.toISOString().split('T')[0],
+                    type: type
+                };
+
+                const response = await fetch('time_backend/leaves.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(leaveData)
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Error al guardar la ausencia');
+                }
+
+                // Recargar las ausencias después de guardar
+                await loadLeaves();
+                
+                // Limpiar el formulario
+                e.target.reset();
+                
+                // Actualizar el campo de empleado
+                if (currentUser) {
+                    document.getElementById('leaveEmployee').value = currentUser.name;
+                }
+                
+                // Ocultar el formulario avanzado después de enviar
+                const advancedOptions = document.getElementById('advancedOptions');
+                const bsCollapse = new bootstrap.Collapse(advancedOptions, { toggle: false });
+                bsCollapse.hide();
+
+                // Mostrar mensaje de éxito
+                alert(type === 'vacation' ? 'Vacaciones registradas correctamente' : 'Baja laboral registrada correctamente');
+            } catch (error) {
+                console.error('Error al guardar ausencia:', error);
+                alert(error.message);
+            }
+        });
     }
-
-    // Inicializar cuando el DOM esté listo
-    document.addEventListener('DOMContentLoaded', () => {
-        // Botón de entrada rápida
-        const quickCheckIn = document.getElementById('quickCheckIn');
-        if (quickCheckIn) {
-            quickCheckIn.addEventListener('click', () => registerPunch('in'));
-        }
-
-        // Botón de salida rápida
-        const quickCheckOut = document.getElementById('quickCheckOut');
-        if (quickCheckOut) {
-            quickCheckOut.addEventListener('click', () => registerPunch('out'));
-        }
-
-        // Cargar fichajes iniciales si hay sesión
-        const currentUser = localStorage.getItem('currentUser');
-        if (currentUser) {
-            loadPunches();
-        }
-    });
-});
+}

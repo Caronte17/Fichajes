@@ -1,6 +1,16 @@
 <?php
 session_start();
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: http://localhost');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Credentials: true');
+
+// Manejar preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -126,12 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $stmt->close();
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Get punches for the current user
-    $stmt = $conn->prepare("
-        SELECT * FROM punches 
-        WHERE employee = ? 
-        ORDER BY time DESC
-    ");
+    // Verificar si el usuario es administrador
+    $isAdmin = isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
+    
+    // Preparar la consulta según el rol
+    if ($isAdmin) {
+        $stmt = $conn->prepare("SELECT * FROM punches ORDER BY time DESC");
+    } else {
+        $stmt = $conn->prepare("SELECT * FROM punches WHERE employee = ? ORDER BY time DESC");
+        $stmt->bind_param("s", $_SESSION['user_name']);
+    }
     
     if (!$stmt) {
         http_response_code(500);
@@ -139,7 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $stmt->bind_param("s", $_SESSION['user_name']);
     if (!$stmt->execute()) {
         http_response_code(500);
         echo json_encode(['error' => 'Error executing statement: ' . $stmt->error]);
@@ -164,15 +177,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Verificar que el fichaje pertenece al usuario actual
-    $stmt = $conn->prepare("SELECT id FROM punches WHERE id = ? AND employee = ?");
+    // Verificar que el usuario es administrador
+    if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'No tienes permisos para eliminar fichajes']);
+        exit;
+    }
+
+    // Verificar que el fichaje existe
+    $stmt = $conn->prepare("SELECT id FROM punches WHERE id = ?");
     if (!$stmt) {
         http_response_code(500);
         echo json_encode(['error' => 'Error preparing statement: ' . $conn->error]);
         exit;
     }
 
-    $stmt->bind_param("is", $data['id'], $_SESSION['user_name']);
+    $stmt->bind_param("i", $data['id']);
     if (!$stmt->execute()) {
         http_response_code(500);
         echo json_encode(['error' => 'Error executing statement: ' . $stmt->error]);
@@ -182,28 +202,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $stmt->get_result();
     if ($result->num_rows === 0) {
         http_response_code(404);
-        echo json_encode(['error' => 'Punch not found or not authorized']);
+        echo json_encode(['error' => 'Fichaje no encontrado']);
         exit;
     }
     $stmt->close();
 
     // Eliminar el fichaje
-    $stmt = $conn->prepare("DELETE FROM punches WHERE id = ? AND employee = ?");
+    $stmt = $conn->prepare("DELETE FROM punches WHERE id = ?");
     if (!$stmt) {
         http_response_code(500);
         echo json_encode(['error' => 'Error preparing statement: ' . $conn->error]);
         exit;
     }
 
-    $stmt->bind_param("is", $data['id'], $_SESSION['user_name']);
+    $stmt->bind_param("i", $data['id']);
     if ($stmt->execute()) {
         echo json_encode([
             'success' => true,
-            'message' => 'Punch deleted successfully'
+            'message' => 'Fichaje eliminado correctamente'
         ]);
     } else {
         http_response_code(500);
-        echo json_encode(['error' => 'Error deleting punch: ' . $stmt->error]);
+        echo json_encode(['error' => 'Error al eliminar el fichaje: ' . $stmt->error]);
     }
     $stmt->close();
 }

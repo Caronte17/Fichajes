@@ -12,21 +12,32 @@ if ($conn->connect_error) {
     die(json_encode(['error' => 'Connection failed: ' . $conn->connect_error]));
 }
 
-$tables = ['users', 'punches', 'leaves'];
-$structure = [];
-
-foreach ($tables as $table) {
-    $result = $conn->query("DESCRIBE $table");
-    if ($result) {
-        $structure[$table] = [];
-        while ($row = $result->fetch_assoc()) {
-            $structure[$table][] = $row;
-        }
-    } else {
-        $structure[$table] = ['error' => $conn->error];
-    }
+// Añadir columna role si no existe
+$result = $conn->query("SHOW COLUMNS FROM users LIKE 'role'");
+if ($result->num_rows === 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN role ENUM('user', 'admin') NOT NULL DEFAULT 'user'");
 }
 
-echo json_encode($structure, JSON_PRETTY_PRINT);
+// Verificar la estructura de la tabla users
+$result = $conn->query("DESCRIBE users");
+$users_structure = [];
+while ($row = $result->fetch_assoc()) {
+    $users_structure[] = $row;
+}
+
+// Verificar los usuarios existentes (sin mostrar contraseñas)
+$result = $conn->query("SELECT id, name, email, role FROM users");
+$users = [];
+while ($row = $result->fetch_assoc()) {
+    $users[] = $row;
+}
+
+$response = [
+    'database_connection' => 'success',
+    'users_table_structure' => $users_structure,
+    'existing_users' => $users
+];
+
+echo json_encode($response, JSON_PRETTY_PRINT);
 $conn->close();
 ?> 
