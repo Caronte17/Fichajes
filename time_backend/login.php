@@ -72,14 +72,21 @@ if ($method === 'POST') {
 
             // Configurar cookie de sesión
             session_regenerate_id(true);
-            setcookie(session_name(), session_id(), [
-                'expires' => time() + 86400, // 24 horas
-                'path' => '/',
-                'domain' => '',
-                'secure' => false,
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
+            
+            // Configurar la cookie de sesión con los parámetros correctos
+            $cookieParams = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                session_id(),
+                [
+                    'expires' => time() + 86400, // 24 horas
+                    'path' => '/',
+                    'domain' => '',
+                    'secure' => false,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]
+            );
 
             // Enviar respuesta exitosa
             sendResponse(true, [

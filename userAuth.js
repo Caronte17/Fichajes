@@ -1,5 +1,13 @@
 // Importar funciones necesarias
-import { loadUsers, loadPunches, loadLeaves, updateTableUI } from './script.js';
+import { loadUsers, loadPunches, loadLeaves, updateTableUI, updateUserUI } from './script.js';
+
+// Variable global para el usuario actual
+export let currentUser = null;
+
+// Función para obtener el usuario actual
+export function getCurrentUser() {
+    return currentUser;
+}
 
 // Función para iniciar sesión
 export async function login(email, password) {
@@ -7,7 +15,8 @@ export async function login(email, password) {
         const response = await fetch('time_backend/login.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ email, password }),
             credentials: 'include'
@@ -18,39 +27,29 @@ export async function login(email, password) {
             throw new Error(data.error || 'Error al iniciar sesión');
         }
 
-        // Guardar usuario en localStorage
+        // Guardar usuario en localStorage y actualizar variable global
+        currentUser = data.data;
         localStorage.setItem('currentUser', JSON.stringify(data.data));
         
         // Actualizar UI
-        document.getElementById('loginSection').style.display = 'none';
-        document.getElementById('userPanel').style.display = 'block';
-        document.getElementById('actionButtonsSection').style.display = 'block';
-        document.getElementById('advancedOptionsToggle').style.display = 'block';
-        document.getElementById('toggleTableBtn').style.display = 'block';
-        document.querySelector('h4.mb-0').style.display = 'block';
+        updateUserUI();
         
-        // Actualizar información del usuario
-        document.getElementById('currentUserName').textContent = data.data.name;
-        document.getElementById('currentUsername').textContent = data.data.email;
-        
-        // Mostrar indicador de administrador si corresponde
-        if (data.data.role === 'admin') {
-            document.getElementById('currentUsername').innerHTML = data.data.email + ' <span class="badge bg-danger">Administrador</span>';
+        // Cargar datos adicionales y actualizar la tabla
+        try {
+            await Promise.all([
+                loadUsers(),
+                loadPunches(),
+                loadLeaves()
+            ]);
+            
+            // Forzar la actualización de la tabla
+            const tableBody = document.querySelector('#punchTable tbody');
+            if (tableBody) {
+                updateTableUI();
+            }
+        } catch (error) {
+            console.error('Error al cargar datos después del login:', error);
         }
-        
-        // Actualizar campos de formulario
-        document.getElementById('employee').value = data.data.name;
-        document.getElementById('leaveEmployee').value = data.data.name;
-        
-        // Cargar datos adicionales
-        await Promise.all([
-            loadUsers(),
-            loadPunches(),
-            loadLeaves()
-        ]);
-        
-        // Actualizar la tabla
-        updateTableUI();
         
         return true;
     } catch (error) {
@@ -64,7 +63,10 @@ export async function logout() {
     try {
         const response = await fetch('time_backend/login.php', {
             method: 'DELETE',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
         });
 
         const data = await response.json();
@@ -72,15 +74,12 @@ export async function logout() {
             throw new Error(data.error);
         }
 
-        // Limpiar localStorage
+        // Limpiar localStorage y variable global
         localStorage.removeItem('currentUser');
+        currentUser = null;
         
         // Actualizar UI
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('userPanel').style.display = 'none';
-        
-        // Limpiar la tabla de fichajes
-        document.querySelector('#punchTable tbody').innerHTML = '';
+        updateUserUI();
         
         return true;
     } catch (error) {
@@ -94,11 +93,17 @@ export async function checkSession() {
     try {
         const response = await fetch('time_backend/currentUser.php', {
             method: 'GET',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
         });
 
         // Si la respuesta es 401, retornamos false sin lanzar error
         if (response.status === 401) {
+            console.log('No hay sesión activa');
+            localStorage.removeItem('currentUser');
+            currentUser = null;
             return false;
         }
 
@@ -109,20 +114,21 @@ export async function checkSession() {
 
         const data = await response.json();
         if (data && data.success && data.data) {
+            // Actualizar el usuario actual
+            currentUser = data.data;
             localStorage.setItem('currentUser', JSON.stringify(data.data));
+            
+            // Actualizar la UI
+            updateUserUI();
+            
             return true;
         }
 
         return false;
     } catch (error) {
-        // Silenciar completamente los errores 401 y no loguear nada
-        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-            return false;
-        }
-        // Solo loguear otros tipos de errores
-        if (!error.message.includes('401') && !error.message.includes('Unauthorized')) {
-            console.error('Error checking session:', error);
-        }
+        console.error('Error checking session:', error);
+        localStorage.removeItem('currentUser');
+        currentUser = null;
         return false;
     }
 }
@@ -182,11 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Verificar si hay sesión activa
     checkSession().then(hasSession => {
         if (hasSession) {
-            const user = JSON.parse(localStorage.getItem('currentUser'));
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('userPanel').style.display = 'block';
-            document.getElementById('currentUserName').textContent = user.name;
-            document.getElementById('currentUsername').textContent = user.email;
+            updateUserUI();
         }
     });
 }); 
