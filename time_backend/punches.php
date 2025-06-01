@@ -9,6 +9,8 @@ header('Access-Control-Allow-Credentials: true');
 // Configurar zona horaria
 date_default_timezone_set('Europe/Madrid');
 
+require_once 'config.php';
+
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -21,12 +23,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "time_tracking";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
+$conn = getDBConnection();
 $conn->set_charset('utf8mb4');
 
 if ($conn->connect_error) {
@@ -116,33 +113,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Es un nuevo fichaje
         // Validación específica según el tipo de fichaje
         if ($type === 'in') {
-            // Para entrada, verificar que no haya una entrada sin salida
+            // Para entrada, verificar que no haya una entrada sin salida en la fecha seleccionada y antes de la hora actual
+            $fechaSeleccionada = isset($data['time']) ? substr($data['time'], 0, 10) : date('Y-m-d');
+            $horaSeleccionada = isset($data['time']) ? substr($data['time'], 11, 8) : date('H:i:s');
             $stmt = $conn->prepare("
                 SELECT id FROM punches 
                 WHERE employee = ? 
-                AND DATE(time) = CURDATE() 
+                AND DATE(time) = DATE(?) 
                 AND type = 'in' 
+                AND time <= ?
                 AND NOT EXISTS (
                     SELECT 1 FROM punches p2 
                     WHERE p2.employee = punches.employee 
                     AND p2.type = 'out' 
-                    AND p2.time > punches.time
+                    AND p2.time > punches.time AND p2.time <= ?
                 )
             ");
+            $fechaHoraSeleccionada = $fechaSeleccionada . ' ' . $horaSeleccionada;
+            $stmt->bind_param("ssss", $employee, $fechaSeleccionada, $fechaHoraSeleccionada, $fechaHoraSeleccionada);
         } else {
-            // Para salida, verificar que haya una entrada sin salida
+            // Para salida, buscar la última entrada sin salida anterior a la hora de salida
+            $fechaSeleccionada = isset($data['time']) ? substr($data['time'], 0, 10) : date('Y-m-d');
+            $horaSeleccionada = isset($data['time']) ? substr($data['time'], 11, 8) : date('H:i:s');
             $stmt = $conn->prepare("
                 SELECT id FROM punches 
                 WHERE employee = ? 
-                AND DATE(time) = CURDATE() 
+                AND DATE(time) = DATE(?) 
                 AND type = 'in' 
+                AND time <= ?
                 AND NOT EXISTS (
                     SELECT 1 FROM punches p2 
                     WHERE p2.employee = punches.employee 
                     AND p2.type = 'out' 
-                    AND p2.time > punches.time
+                    AND p2.time > punches.time AND p2.time <= ?
                 )
+                ORDER BY time DESC LIMIT 1
             ");
+            $fechaHoraSeleccionada = $fechaSeleccionada . ' ' . $horaSeleccionada;
+            $stmt->bind_param("ssss", $employee, $fechaSeleccionada, $fechaHoraSeleccionada, $fechaHoraSeleccionada);
         }
 
         if (!$stmt) {
@@ -151,7 +159,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $stmt->bind_param("s", $employee);
         if (!$stmt->execute()) {
             http_response_code(500);
             echo json_encode(['error' => 'Error executing statement: ' . $stmt->error]);
@@ -287,6 +294,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         http_response_code(500);
         echo json_encode(['error' => 'Error al eliminar el fichaje: ' . $stmt->error]);
+    }
+    $stmt->close();
+} elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+
+    if ($data === null || !isset($data['id'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid JSON data or missing punch ID']);
+        exit;
+    }
+
+    // Verificar que el usuario es administrador
+    if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'No tienes permisos para modificar fichajes']);
+        exit;
+    }
+
+    // Verificar que el fichaje existe
+    $stmt = $conn->prepare("SELECT id FROM punches WHERE id = ?");
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error preparing statement: ' . $conn->error]);
+        exit;
+    }
+
+    $stmt->bind_param("i", $data['id']);
+    if (!$stmt->execute()) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error executing statement: ' . $stmt->error]);
+        exit;
+    }
+
+    $result = $stmt->get_result();
+    if ($result->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Fichaje no encontrado']);
+        exit;
+    }
+    $stmt->close();
+
+    // Actualizar el fichaje
+    $stmt = $conn->prepare("UPDATE punches SET employee = ?, type = ?, time = ? WHERE id = ?");
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error preparing statement: ' . $conn->error]);
+        exit;
+    }
+
+    $stmt->bind_param("sssi", $data['employee'], $data['type'], $data['time'], $data['id']);
+    if ($stmt->execute()) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Fichaje actualizado correctamente',
+            'punch' => [
+                'id' => $data['id'],
+                'employee' => $data['employee'],
+                'type' => $data['type'],
+                'time' => $data['time']
+            ]
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al actualizar el fichaje: ' . $stmt->error]);
     }
     $stmt->close();
 }

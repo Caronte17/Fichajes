@@ -5,12 +5,6 @@ error_reporting(E_ALL);
 
 // Iniciar sesión y buffer de salida
 session_start();
-ob_start();
-
-// Limpiar cualquier salida anterior
-while (ob_get_level()) {
-    ob_end_clean();
-}
 
 // Configurar headers para CORS y cookies
 header('Content-Type: application/json');
@@ -25,21 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// Configuración de la base de datos
-$host = "localhost";
-$dbname = "time_tracking";
-$username = "root";
-$password = "";
-
-// Función para enviar respuesta JSON
-function sendResponse($success, $data = null, $error = null) {
-    echo json_encode([
-        'success' => $success,
-        'data' => $data,
-        'error' => $error
-    ]);
-    exit;
-}
+require_once 'config.php';
 
 // Manejar la petición según el método HTTP
 $method = $_SERVER['REQUEST_METHOD'];
@@ -55,14 +35,15 @@ if ($method === 'POST') {
 
     try {
         // Conectar a la base de datos
-        $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
+        $conn = getDBConnection();
         // Buscar usuario
         $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
-        $stmt->execute([$data['email']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
+        $stmt->bind_param("s", $data['email']);
+        if (!$stmt->execute()) {
+            sendResponse(false, null, 'Error ejecutando consulta');
+        }
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
         if ($user && password_verify($data['password'], $user['password'])) {
             // Guardar en sesión
             $_SESSION['user_id'] = $user['id'];
@@ -72,8 +53,6 @@ if ($method === 'POST') {
 
             // Configurar cookie de sesión
             session_regenerate_id(true);
-            
-            // Configurar la cookie de sesión con los parámetros correctos
             $cookieParams = session_get_cookie_params();
             setcookie(
                 session_name(),
@@ -87,7 +66,6 @@ if ($method === 'POST') {
                     'samesite' => 'Lax'
                 ]
             );
-
             // Enviar respuesta exitosa
             sendResponse(true, [
                 'id' => $user['id'],
@@ -98,7 +76,7 @@ if ($method === 'POST') {
         } else {
             sendResponse(false, null, 'Credenciales incorrectas');
         }
-    } catch(PDOException $e) {
+    } catch(Exception $e) {
         sendResponse(false, null, 'Error de conexión');
     }
 } elseif ($method === 'DELETE') {

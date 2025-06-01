@@ -44,6 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'All fields are required']);
         exit;
     }
+    // Validar formato de email
+    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email format is invalid']);
+        exit;
+    }
 
     // Check if email already exists
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");

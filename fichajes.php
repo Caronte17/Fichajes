@@ -56,7 +56,7 @@
                                 <input type="text" class="form-control" id="registerName" required>
                             </div>
                             <div class="col-md-3">
-                                <label for="registerUsername" class="form-label">Usuario</label>
+                                <label for="registerUsername" class="form-label">Email</label>
                                 <input type="text" class="form-control" id="registerUsername" required>
                             </div>
                             <div class="col-md-3">
@@ -259,7 +259,7 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-        <script type="module" src="script.js"></script>
+        <script type="module" src="js/main.js"></script>
     </div>
 </body>
 </html> 

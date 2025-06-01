@@ -9,6 +9,8 @@ header('Access-Control-Allow-Credentials: true');
 // Configurar zona horaria
 date_default_timezone_set('Europe/Madrid');
 
+require_once 'config.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
@@ -20,12 +22,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "time_tracking";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
+$conn = getDBConnection();
 $conn->set_charset('utf8mb4');
 
 if ($conn->connect_error) {
@@ -57,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employee = $_SESSION['user_name'];
     $status = 'pending';
 
+    // Log temporal para depuración de hora del servidor
+    file_put_contents(__DIR__ . '/leaves_debug.log', 'Servidor: ' . date('Y-m-d H:i:s') . ' - startDate: ' . $startDate . "\n", FILE_APPEND);
+
     // Validar que las fechas sean válidas
     if (strtotime($startDate) > strtotime($endDate)) {
         http_response_code(400);
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Validar que no sean fechas pasadas
+    // Validar que no sean fechas pasadas (permitir hoy)
     if (strtotime($startDate) < strtotime(date('Y-m-d'))) {
         http_response_code(400);
         echo json_encode(['error' => 'No se pueden solicitar ausencias para fechas pasadas']);
