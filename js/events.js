@@ -1,4 +1,3 @@
-// events.js
 import { login, logout, getCurrentUser, handleRegister } from './users.js';
 import { loadPunches, savePunches, deletePunch } from './punches.js';
 import { loadLeaves, saveLeaves, deleteLeave } from './leaves.js';
@@ -8,7 +7,6 @@ import { updateUserUI } from './ui.js';
 export function initializeEventListeners() {
     const loginForm = document.getElementById('loginForm');
     if (!loginForm) {
-        console.error('Formulario de login no encontrado');
         return;
     }
     loginForm.addEventListener('submit', async (e) => {
@@ -21,7 +19,6 @@ export function initializeEventListeners() {
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (!logoutBtn) {
-        console.error('Botón de logout no encontrado');
         return;
     }
     logoutBtn.addEventListener('click', async () => {
@@ -103,7 +100,7 @@ export function initializeEventListeners() {
             // Preseleccionar tipo vacaciones
             const vacRadio = document.getElementById('leaveTypeVac');
             if (vacRadio) vacRadio.checked = true;
-            // Poner foco en el campo de rango de fechas
+            // Rango de fechas
             const leaveRange = document.getElementById('leaveRange');
             if (leaveRange) leaveRange.focus();
         });
@@ -122,7 +119,7 @@ export function initializeEventListeners() {
             // Preseleccionar tipo baja
             const sickRadio = document.getElementById('leaveTypeSick');
             if (sickRadio) sickRadio.checked = true;
-            // Poner foco en el campo de rango de fechas
+            // Campo de rango de fechas
             const leaveRange = document.getElementById('leaveRange');
             if (leaveRange) leaveRange.focus();
         });
@@ -188,6 +185,9 @@ export function initializeEventListeners() {
                 await loadLeaves();
             }
             leaveForm.reset();
+            // Restaurar el valor del campo de empleado
+            const leaveEmpleadoInput = document.getElementById('leaveEmployee');
+            if (leaveEmpleadoInput && currentUser) leaveEmpleadoInput.value = currentUser.name;
         });
     }
 
@@ -246,6 +246,9 @@ export function initializeEventListeners() {
                 await loadPunches();
             }
             punchForm.reset();
+            // Restaurar el valor del campo de empleado
+            const empleadoInput = document.getElementById('employee');
+            if (empleadoInput && currentUser) empleadoInput.value = currentUser.name;
         });
     }
 
@@ -299,6 +302,21 @@ export function initializeEventListeners() {
     if (issueForm && submitIssue) {
         submitIssue.addEventListener('click', () => {
             issueForm.reset();
+        });
+    }
+
+    // Event listeners para exportar
+    const exportExcelBtn = document.getElementById('exportExcel');
+    if (exportExcelBtn) {
+        exportExcelBtn.addEventListener('click', () => {
+            import('./ui.js').then(mod => mod.exportToExcel());
+        });
+    }
+
+    const exportPDFBtn = document.getElementById('exportPDF');
+    if (exportPDFBtn) {
+        exportPDFBtn.addEventListener('click', () => {
+            import('./ui.js').then(mod => mod.exportToPDF());
         });
     }
 }

@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const punchesData = getPunches();
                 const leavesData = getLeaves();
-                console.log('Datos cargados:', { punchesData, leavesData });
 
                 setData({
                     punchList: punchesData,
@@ -31,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Inicialización de flatpickr (migrado de script.js)
+        // Inicialización de flatpickr
         flatpickr('#date', { 
             dateFormat: 'Y-m-d',
             time_24hr: true

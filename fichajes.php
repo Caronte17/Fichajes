@@ -158,7 +158,7 @@
         <!-- Formulario original (ahora ocultable) -->
         <div class="row mb-4" id="advancedOptionsToggle" style="display: none;">
             <div class="col-12">
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions">
+                <button class="btn btn-sm btn-outline-secondary" type="button" id="advancedOptionsBtn">
                     Mostrar/ocultar opciones avanzadas
                 </button>
             </div>

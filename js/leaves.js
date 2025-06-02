@@ -1,8 +1,7 @@
-// leaves.js
 import { updateTableUI } from './ui.js';
 import { getPunches } from './punches.js';
 import { setData } from './ui.js';
-// import { loadLeaves } from './leaves.js';
+
 
 
 let leaves = [];
@@ -56,7 +55,6 @@ export async function saveLeaves(newLeaves) {
                 end: (l.end instanceof Date) ? l.end.toISOString().split('T')[0] : l.end,
                 type: l.type.trim()
             };
-            console.log('Enviando leaveData:', leaveData);
 
             return fetch('time_backend/leaves.php', {
                 method: 'POST',

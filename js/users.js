@@ -1,4 +1,3 @@
-// users.js (consolidado con userAuth.js)
 import { updateUserUI } from './ui.js';
 import { loadPunches, getPunches } from './punches.js';
 import { loadLeaves, getLeaves } from './leaves.js';
@@ -43,7 +42,6 @@ export async function checkSession() {
             return false;
         }
     } catch (error) {
-        console.error('Error al verificar sesión:', error);
         currentUser = null;
         localStorage.removeItem('currentUser');
         updateUserUI();
@@ -64,7 +62,6 @@ export async function loadUsers() {
 
         return data;
     } catch (error) {
-        console.error('Error al cargar usuarios:', error);
         alert('Error al cargar los usuarios');
         return [];
     }
@@ -83,7 +80,6 @@ export async function login(email, password) {
         });
 
         if (!response.ok) {
-            console.error('Error en la respuesta del servidor:', response.statusText);
             throw new Error('Error al iniciar sesión');
         }
 
@@ -104,7 +100,6 @@ export async function login(email, password) {
             setData({ punchList: getPunches(), leaveList: getLeaves() });
             updateTableUI();
         } catch (error) {
-            console.error('Error al cargar datos después del login:', error);
         }
 
         return true;
@@ -160,7 +155,6 @@ export async function handleRegister(email, password, name) {
             throw new Error(data.message || 'Error en el registro');
         }
     } catch (error) {
-        console.error('Error en registro:', error);
         throw error;
     }
 }

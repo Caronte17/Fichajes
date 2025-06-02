@@ -1,4 +1,3 @@
-// ui.js
 import { currentUser, getCurrentUser } from './users.js';
 import { formatDate, formatYMD, calculateDuration } from './utils.js';
 import { loadPunches } from './punches.js';
@@ -10,7 +9,6 @@ let leaves = [];
 export function setData({ punchList, leaveList }) {
     punches = punchList;
     leaves = leaveList;
-    console.log('Datos establecidos: punches:', punches, 'leaves:', leaves);
 }
 
 export function clearAllForms() {
@@ -22,7 +20,29 @@ export function clearAllForms() {
         document.getElementById('issueForm')
     ];
     forms.forEach(form => {
-        if (form) form.reset();
+        if (form) {
+            // Si el formulario tiene un campo de empleado, guarda su valor antes de resetear
+            let empleadoValue = null;
+            let leaveEmpleadoValue = null;
+            if (form.id === 'punchForm') {
+                const empleadoInput = form.querySelector('#employee');
+                if (empleadoInput) empleadoValue = empleadoInput.value;
+            }
+            if (form.id === 'leaveForm') {
+                const leaveEmpleadoInput = form.querySelector('#leaveEmployee');
+                if (leaveEmpleadoInput) leaveEmpleadoValue = leaveEmpleadoInput.value;
+            }
+            form.reset();
+            // Restaurar el valor del campo de empleado si corresponde
+            if (form.id === 'punchForm' && empleadoValue !== null) {
+                const empleadoInput = form.querySelector('#employee');
+                if (empleadoInput) empleadoInput.value = empleadoValue;
+            }
+            if (form.id === 'leaveForm' && leaveEmpleadoValue !== null) {
+                const leaveEmpleadoInput = form.querySelector('#leaveEmployee');
+                if (leaveEmpleadoInput) leaveEmpleadoInput.value = leaveEmpleadoValue;
+            }
+        }
     });
     // Limpiar campos manuales si flatpickr o valores custom
     if (document.getElementById('date')) document.getElementById('date').value = '';
@@ -32,7 +52,6 @@ export function clearAllForms() {
 
 export function updateUserUI() {
     const currentUser = getCurrentUser();
-    console.log('Current User:', currentUser);
     const tableContainer = document.getElementById('tableContainer');
     const loginSection = document.getElementById('loginSection');
     const userPanel = document.getElementById('userPanel');
@@ -41,9 +60,7 @@ export function updateUserUI() {
     const toggleTableBtn = document.getElementById('toggleTableBtn');
     const h4mb0 = document.querySelector('h4.mb-0');
 
-    console.log('Actualizando la interfaz de usuario');
     if (!currentUser) {
-        console.warn('No hay usuario actual, ocultando elementos de la interfaz de usuario');
         // Oculta la tabla y paneles si no hay usuario
         if (tableContainer) tableContainer.style.display = 'none';
         if (userPanel) userPanel.style.display = 'none';
@@ -60,17 +77,15 @@ export function updateUserUI() {
         if (document.getElementById('annualTotal')) document.getElementById('annualTotal').textContent = '0.00';
         // Limpiar formularios
         clearAllForms();
-        // Ocultar opciones avanzadas (collapse)
+        // Ocultar opciones avanzadas (collapse) SOLO con clases
         const advancedOptions = document.getElementById('advancedOptions');
         if (advancedOptions) {
             advancedOptions.classList.remove('show');
-            advancedOptions.style.display = 'none';
         }
         return;
     }
 
     // Muestra la tabla y paneles si hay usuario
-    console.log('Mostrando elementos de la interfaz de usuario para el usuario:', currentUser);
     if (tableContainer) tableContainer.style.display = 'block';
     if (userPanel) userPanel.style.display = 'block';
     if (actionButtonsSection) actionButtonsSection.style.display = 'block';
@@ -94,17 +109,22 @@ export function updateUserUI() {
     const leaveEmployeeInput = document.getElementById('leaveEmployee');
     if (employeeInput) employeeInput.value = currentUser.name;
     if (leaveEmployeeInput) leaveEmployeeInput.value = currentUser.name;
+
+    // Asignar manualmente el evento click al botón de collapse (sin depender de data-bs-toggle)
+    const advancedOptionsBtn = document.getElementById('advancedOptionsBtn');
+    const collapseEl = document.getElementById('advancedOptions');
+    if (advancedOptionsBtn && collapseEl && typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+        advancedOptionsBtn.onclick = null;
+        advancedOptionsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const collapseInstance = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+            collapseInstance.toggle();
+        });
+    }
 }
 
 export function updateTableUI() {
-    console.log('Actualizando la tabla con punches:', punches, 'y leaves:', leaves);
-    const tableBody = document.querySelector('#punchTable tbody');
-    if (!tableBody) {
-        console.error('No se encontró el cuerpo de la tabla');
-        return;
-    }
-    console.log('Tabla encontrada, procediendo a actualizar');
-    updateTable(tableBody);
+    updateTable(document.querySelector('#punchTable tbody'));
 
     // Calcular totales de horas
     const now = new Date();
@@ -132,13 +152,31 @@ export function updateTableUI() {
             }
         }
     });
+    // Sumar 8h por cada día de vacaciones
+    leaves.forEach(l => {
+        if (l.type === 'vacation') {
+            let start = new Date(l.start);
+            let end = new Date(l.end);
+            // Normalizar a medianoche para evitar problemas de horas
+            start.setHours(0,0,0,0);
+            end.setHours(0,0,0,0);
+            let current = new Date(start);
+            while (current <= end) {
+                if (current.getFullYear() === currentYear) {
+                    annualTotal += 8;
+                    if (current.getMonth() === currentMonth) {
+                        monthlyTotal += 8;
+                    }
+                }
+                current.setDate(current.getDate() + 1);
+            }
+        }
+    });
     document.getElementById('monthlyTotal').textContent = monthlyTotal.toFixed(2);
     document.getElementById('annualTotal').textContent = annualTotal.toFixed(2);
-    console.log('Tabla actualizada correctamente');
 }
 
 function deleteItem(id, source) {
-    console.log('Intentando eliminar:', { id, source, tipo: typeof id });
     const endpoint = source === 'leave' ? 'time_backend/leaves.php' : 'time_backend/punches.php';
     fetch(endpoint, {
         method: 'DELETE',
@@ -155,7 +193,6 @@ function deleteItem(id, source) {
         return response.json();
     })
     .then(() => {
-        console.log(`Elemento ${source} con ID ${id} eliminado`);
         // Recargar los datos y actualizar la tabla
         if (source === 'punch') {
             loadPunches();
@@ -164,13 +201,11 @@ function deleteItem(id, source) {
         }
     })
     .catch(error => {
-        console.error('Error al eliminar el elemento:', error);
         alert(error.message);
     });
 }
 
 function editItem(id, source) {
-    console.log(`Editar ${source} con ID: ${id}`);
     if (source === 'punch') {
         // Buscar el punch por id
         const punch = punches.find(p => p.id == id);
@@ -278,7 +313,6 @@ function addEventListenersToButtons() {
         button.addEventListener('click', (event) => {
             const id = button.getAttribute('data-id');
             const source = button.getAttribute('data-source');
-            console.log(`Editar ${source} con ID: ${id}`);
             editItem(id, source);
         });
     });
@@ -404,10 +438,14 @@ function updateTable(tableBody) {
             </button>
         ` : '';
 
+        // Mostrar solo la fecha (YYYY-MM-DD) para ausencias
+        const entrada = row.source === 'leave' && inDate ? inDate.toISOString().slice(0,10) : (inDate ? formatDate(inDate) : '');
+        const salida = row.source === 'leave' && outDate ? outDate.toISOString().slice(0,10) : (outDate ? formatDate(outDate) : '');
+
         tr.innerHTML = `
             <td>${row.employee}</td>
-            <td>${row.in ? formatDate(row.in) : ''}</td>
-            <td>${row.out ? formatDate(row.out) : ''}</td>
+            <td>${entrada}</td>
+            <td>${salida}</td>
             <td>${row.duration != null ? row.duration.toFixed(2) : ''}</td>
             <td>${row.source === 'leave' ? 
                 (row.leaveType === 'vacation' ? 
@@ -426,12 +464,9 @@ function updateTable(tableBody) {
 
     // Agregar eventos a los botones después de actualizar la tabla
     addEventListenersToButtons();
-    console.log('Tabla actualizada correctamente');
 }
 
-console.log('ui.js loaded');
-
-function exportToExcel() {
+export function exportToExcel() {
     const table = document.getElementById('punchTable');
     if (!table) return alert('No hay datos para exportar');
 
@@ -439,7 +474,7 @@ function exportToExcel() {
     XLSX.writeFile(wb, 'export.xlsx');
 }
 
-function exportToPDF() {
+export function exportToPDF() {
     const table = document.getElementById('punchTable');
     if (!table) return alert('No hay datos para exportar');
 
